@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เครื่องมือทบทวนโครงการ | งานห้องเรียนธรรมชาติ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals with Green Accent -->
+    <!-- Application Structure Plan: A single-page, vertically scrolling application with a fixed side navigation. This structure guides the user through the five logical steps of reflection (Overview, Planning, Execution, Results, Lessons Learned) in a linear, easy-to-follow manner, which is ideal for a novice user. Each section contains interactive form elements (text areas, sliders, toggles). A final summary section dynamically generates a consolidated report and a skills visualization chart, providing a tangible and valuable output for the user. This design turns a static questionnaire into an engaging, productive tool. -->
+    <!-- Visualization & Content Choices: The core of the report is qualitative text input, so textareas are the primary tool. To enhance engagement and meet requirements, a Chart.js radar chart is used in the final summary. Goal: Visualize self-assessed skill development in key project management areas based on the provided template. Method: User rates their performance in specific areas on sliders (1-10 scale); a radar chart displays these ratings. Interaction: Sliders update data for the chart. Justification: This provides a visual summary of performance and growth in areas directly relevant to the project reflection template, enhancing the "wow" factor and practical utility. Other interactive elements like toggles are used for binary questions to streamline input. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            scroll-behavior: smooth;
+        }
+        .nav-link.active {
+            background-color: #15803d; /* green-700 */
+            color: white;
+            font-weight: 700;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #print-area, #print-area * {
+                visibility: visible;
+            }
+            #print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 20mm; /* Add some print margin for better layout */
+                box-sizing: border-box; /* Include padding in width calculation */
+            }
+
+            /* General text and spacing adjustments for print */
+            #print-area h2, #print-area h3 {
+                font-size: 20pt !important; /* Larger headings for print */
+                margin-top: 20pt !important;
+                margin-bottom: 10pt !important;
+                page-break-after: avoid; /* Prevent page break right after heading */
+            }
+            #print-area p, #print-area li {
+                font-size: 10pt !important; /* Standard text size for print */
+                line-height: 1.5 !important; /* Good line spacing for readability */
+                margin-bottom: 5pt !important;
+            }
+            #print-area strong {
+                font-weight: bold !important;
+            }
+
+            /* Specific layout adjustments for print */
+            #summary-content .space-y-6 > div { /* Target each section within summary content */
+                margin-bottom: 20pt !important; /* Space between sections */
+                page-break-inside: avoid; /* Keep sections together if possible */
+            }
+
+            #summary-content ul {
+                list-style-type: disc !important;
+                padding-left: 20pt !important; /* Ensure list indentation */
+            }
+            #summary-content ul li {
+                margin-bottom: 5pt !important;
+            }
+
+            /* Adjusting grid layouts for print to stack vertically */
+            #summary-content .grid {
+                display: block !important; /* Force block display for print */
+            }
+            #summary-content .grid > div {
+                margin-bottom: 10pt !important; /* Space between grid items when stacked */
+                page-break-inside: avoid;
+            }
+
+            /* Photo section specific adjustments for print */
+            #summary-content .photo-entry-print {
+                display: block !important;
+                margin-bottom: 20pt !important;
+                page-break-inside: avoid; /* Keep photo and caption together */
+            }
+            #summary-content .photo-entry-print img {
+                max-width: 100% !important;
+                height: auto !important;
+                display: block !important;
+                margin: 0 auto 10pt auto !important; /* Center image and add space below */
+            }
+            #summary-content .photo-entry-print p {
+                text-align: center !important; /* Center caption */
+            }
+
+            /* Chart adjustments for print */
+            .chart-container {
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important; /* Let height adjust naturally */
+                page-break-before: always; /* Start chart on new page for clarity */
+            }
+            canvas#skills-chart {
+                width: 100% !important;
+                height: auto !important;
+                display: block !important;
+            }
+        }
+        /* Loading spinner for AI generation */
+        .loader {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #10b981; /* Tailwind green-500 */
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-stone-100 text-stone-800">
+
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-64 bg-white md:h-screen md:sticky md:top-0 p-4 md:p-6 shadow-md z-10">
+            <h1 class="text-2xl font-bold text-green-800 mb-1">Project Reflection</h1>
+            <p class="text-sm text-stone-600 mb-6">งานห้องเรียนธรรมชาติ</p>
+            <nav id="navigation">
+                <ul class="space-y-2">
+                    <li><a href="#project-info" class="nav-link block p-3 rounded-lg hover:bg-stone-200 transition-colors duration-200">ข้อมูลโครงการ</a></li>
+                    <li><a href="#overview" class="nav-link block p-3 rounded-lg hover:bg-stone-200 transition-colors duration-200">ภาพรวมโครงการ</a></li>
+                    <li><a href="#performance" class="nav-link block p-3 rounded-lg hover:bg-stone-200 transition-colors duration-200">ผลการดำเนินงาน</a></li>
+                    <li><a href="#activity-photos" class="nav-link block p-3 rounded-lg hover:bg-stone-200 transition-colors duration-200">รูปภาพกิจกรรม</a></li>
+                    <li><a href="#lessons" class="nav-link block p-3 rounded-lg hover:bg-stone-200 transition-colors duration-200">บทเรียนที่ได้รับ</a></li>
+                    <li><a href="#recommendations" class="nav-link block p-3 rounded-lg hover:bg-stone-200 transition-colors duration-200">ข้อเสนอแนะและแผนปฏิบัติ</a></li>
+                </ul>
+            </nav>
+            <div class="mt-8">
+                 <button id="generate-summary-btn" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 transition-colors duration-300 shadow-lg">
+                    สร้างสรุปรายงาน
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-4 sm:p-6 md:p-10">
+            <div id="reflection-form" class="max-w-4xl mx-auto space-y-12">
+                
+                <!-- Section: Project Information -->
+                <section id="project-info" class="space-y-6 p-6 bg-white rounded-xl shadow-sm">
+                    <h2 class="text-3xl font-bold text-green-700 border-b-2 border-green-200 pb-2">ข้อมูลโครงการ</h2>
+                    <p class="text-stone-600">กรุณากรอกรายละเอียดพื้นฐานของโครงการเพื่อเป็นข้อมูลอ้างอิงสำหรับการทบทวน</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                            <label class="block font-semibold text-stone-700">ชื่อโครงการ:</label>
+                            <input type="text" id="project_name" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block font-semibold text-stone-700">ผู้จัดการโครงการ:</label>
+                            <input type="text" id="project_manager" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block font-semibold text-stone-700">ผู้สนับสนุนโครงการ:</label>
+                            <input type="text" id="project_sponsor" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition">
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <label class="block font-semibold text-stone-700">วันที่เริ่ม:</label>
+                            <input type="date" id="commenced_date" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block font-semibold text-stone-700">วันที่กิจกรรม:</label>
+                            <input type="date" id="delivered_date" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block font-semibold text-stone-700">วันที่ทบทวน:</label>
+                            <input type="date" id="review_date" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 1: Overview -->
+                <section id="overview" class="space-y-6 p-6 bg-white rounded-xl shadow-sm">
+                    <h2 class="text-3xl font-bold text-green-700 border-b-2 border-green-200 pb-2">ภาพรวมโครงการ</h2>
+                    <p class="text-stone-600">ในส่วนนี้ ให้คุณอธิบายภาพรวมของโครงการ รวมถึงวัตถุประสงค์และผลลัพธ์ที่คาดหวัง เพื่อให้เห็นภาพรวมที่ชัดเจนของสิ่งที่เราต้องการบรรลุ</p>
+                    <div class="space-y-4">
+                        <label class="block font-semibold text-stone-700">คำอธิบายโครงการ (Project description):</label>
+                        <textarea id="q_overview_description" rows="4" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="อธิบายความเป็นมาของโครงการ ปัญหาที่ต้องการแก้ไข และ/หรือโอกาสที่ต้องการสร้าง"></textarea>
+                    </div>
+                    <div class="space-y-4">
+                        <label class="block font-semibold text-stone-700">ผลลัพธ์ที่ตั้งใจ (Intended outcomes):</label>
+                        <textarea id="q_overview_outcomes" rows="4" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="ระบุผลลัพธ์ที่โครงการต้องการบรรลุ ใครจะได้รับประโยชน์ และพวกเขาจะได้รับประโยชน์อย่างไร"></textarea>
+                    </div>
+                    <div class="space-y-4">
+                        <label class="block font-semibold text-stone-700">วัตถุประสงค์เชิงกลยุทธ์ (Strategic objectives):</label>
+                        <textarea id="q_overview_strategic" rows="4" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="อธิบายว่าผลลัพธ์เหล่านี้สอดคล้องกับวัตถุประสงค์เชิงกลยุทธ์ขององค์กรอย่างไร"></textarea>
+                    </div>
+                </section>
+
+                <!-- Section 2: Project Performance -->
+                <section id="performance" class="space-y-6 p-6 bg-white rounded-xl shadow-sm">
+                    <h2 class="text-3xl font-bold text-green-700 border-b-2 border-green-200 pb-2">ผลการดำเนินงานโครงการ</h2>
+                    <p class="text-stone-600">ส่วนนี้จะช่วยให้คุณประเมินผลการดำเนินงานเทียบกับแผนที่วางไว้ รวมถึงผลลัพธ์ที่เกิดขึ้นจริง การเปลี่ยนแปลงที่เกิดขึ้น และปัญหาที่ยังคงค้างอยู่</p>
+                    <div class="space-y-4">
+                        <h3 class="font-bold text-lg text-stone-700">ผลการดำเนินงานเทียบกับแผนฐาน (Performance against baseline plans)</h3>
+                        <p class="text-sm text-stone-600">โปรดเปรียบเทียบรายละเอียดเกี่ยวกับ Scope, Schedule, และ Budget ระหว่างแผนที่วางไว้กับผลการดำเนินงานจริง</p>
+                        
+                        <div class="grid grid-cols-2 gap-4 text-center font-semibold text-stone-700 mb-2">
+                            <div>แผน (Planned)</div>
+                            <div>ผลการดำเนินงานจริง (Actual)</div>
+                        </div>
+
+                        <!-- Scope Detail -->
+                        <div class="col-span-full">
+                            <label class="block font-semibold text-stone-700 mb-2">ขอบเขต (Scope):</label>
+                            <div class="space-y-3">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                    <textarea id="q_perf_scope_deliverables_planned" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="แผน: ผลลัพธ์ที่ส่งมอบ"></textarea>
+                                    <textarea id="q_perf_scope_deliverables_actual" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="จริง: ผลลัพธ์ที่ส่งมอบ"></textarea>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                    <textarea id="q_perf_scope_features_planned" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="แผน: คุณสมบัติ/ฟังก์ชัน"></textarea>
+                                    <textarea id="q_perf_scope_features_actual" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="จริง: คุณสมบัติ/ฟังก์ชัน"></textarea>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                    <textarea id="q_perf_scope_audience_planned" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="แผน: กลุ่มเป้าหมาย"></textarea>
+                                    <textarea id="q_perf_scope_audience_actual" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="จริง: กลุ่มเป้าหมาย"></textarea>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                    <textarea id="q_perf_scope_area_planned" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="แผน: พื้นที่ดำเนินงาน"></textarea>
+                                    <textarea id="q_perf_scope_area_actual" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="จริง: พื้นที่ดำเนินงาน"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Schedule (remains single for now as per request focus) -->
+                        <div class="col-span-full">
+                            <label class="block font-semibold text-stone-700 mb-2">ตารางเวลา (Schedule):</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                <textarea id="q_perf_schedule_planned" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="แผนตารางเวลา"></textarea>
+                                <textarea id="q_perf_schedule_actual" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="ผลตารางเวลาจริง"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Budget Detail -->
+                        <div class="col-span-full">
+                            <label class="block font-semibold text-stone-700 mb-2">งบประมาณ (Budget):</label>
+                            <div class="space-y-3">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                    <textarea id="q_perf_budget_personnel_planned" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="แผน: ค่าบุคลากร"></textarea>
+                                    <textarea id="q_perf_budget_personnel_actual" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="จริง: ค่าบุคลากร"></textarea>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                    <textarea id="q_perf_budget_materials_planned" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="แผน: ค่าวัสดุ/อุปกรณ์"></textarea>
+                                    <textarea id="q_perf_budget_materials_actual" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="จริง: ค่าวัสดุ/อุปกรณ์"></textarea>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                    <textarea id="q_perf_budget_travel_planned" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="แผน: ค่าเดินทาง/โลจิสติกส์"></textarea>
+                                    <textarea id="q_perf_budget_travel_actual" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="จริง: ค่าเดินทาง/โลจิสติกส์"></textarea>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                    <textarea id="q_perf_budget_marketing_planned" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="แผน: ค่าการตลาด/ประชาสัมพันธ์"></textarea>
+                                    <textarea id="q_perf_budget_marketing_actual" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="จริง: ค่าการตลาด/ประชาสัมพันธ์"></textarea>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                    <textarea id="q_perf_budget_contingency_planned" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="แผน: ค่าสำรอง"></textarea>
+                                    <textarea id="q_perf_budget_contingency_actual" rows="2" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="จริง: ค่าสำรอง"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <label class="block font-semibold text-stone-700">ผลลัพธ์ที่ส่งมอบแล้ว (Outcomes delivered):</label>
+                        <textarea id="q_perf_outcomes_delivered" rows="4" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="ระบุรายละเอียดของประโยชน์ที่ได้รับจากการดำเนินโครงการ (สิ่งที่เห็นและวัดผลได้ในตอนนี้)"></textarea>
+                    </div>
+                    <div class="space-y-4">
+                        <label class="block font-semibold text-stone-700">ผลลัพธ์ที่ยังไม่บรรลุ (Outcomes yet to be realised):</label>
+                        <textarea id="q_perf_outcomes_unrealised" rows="4" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="ระบุผลลัพธ์ที่ยังไม่บรรลุจากการดำเนินโครงการ แต่ถูกระบุไว้สำหรับดำเนินการในภายหลัง"></textarea>
+                    </div>
+                    <div class="space-y-4">
+                        <label class="block font-semibold text-stone-700">การเปลี่ยนแปลง (Changes):</label>
+                        <textarea id="q_perf_changes" rows="4" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="อธิบายผลกระทบของการเปลี่ยนแปลงที่ได้รับอนุมัติระหว่างโครงการ (เช่น ขอบเขต เวลา ค่าใช้จ่าย คุณภาพ)"></textarea>
+                    </div>
+                    <div class="space-y-4">
+                        <label class="block font-semibold text-stone-700">การดำเนินการที่ยังค้างอยู่ (Open actions):</label>
+                        <textarea id="q_perf_open_actions" rows="3" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="ระบุปัญหาหรือความเสี่ยงของโครงการที่ยังไม่ได้รับการแก้ไข"></textarea>
+                    </div>
+                </section>
+
+                <!-- Section: Activity Photos -->
+                <section id="activity-photos" class="space-y-6 p-6 bg-white rounded-xl shadow-sm">
+                    <h2 class="text-3xl font-bold text-green-700 border-b-2 border-green-200 pb-2">รูปภาพกิจกรรม</h2>
+                    <p class="text-stone-600">เพิ่มรูปภาพที่เกี่ยวข้องกับกิจกรรมเพื่อประกอบการทบทวนโครงการ</p>
+                    <div id="photo-entries-container" class="space-y-6">
+                        <!-- Dynamic photo entries will be added here by JavaScript -->
+                    </div>
+                    <button id="add-photo-btn" class="mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors duration-300">
+                        + เพิ่มรูปภาพ
+                    </button>
+                </section>
+
+                <!-- Section 3: Lessons Learned -->
+                <section id="lessons" class="space-y-6 p-6 bg-white rounded-xl shadow-sm">
+                    <h2 class="text-3xl font-bold text-green-700 border-b-2 border-green-200 pb-2">บทเรียนที่ได้รับ</h2>
+                    <p class="text-stone-600">ทบทวนสิ่งที่ได้เรียนรู้จากโครงการในแต่ละด้าน เพื่อระบุจุดแข็งที่ควรทำต่อและจุดที่ควรปรับปรุง</p>
+                    <div class="mt-6 p-4 bg-green-50 rounded-lg">
+                        <p class="text-sm text-stone-600 mb-4">ให้คะแนนการดำเนินงานในแต่ละด้าน (1 = ควรปรับปรุงมาก, 10 = ยอดเยี่ยม)</p>
+                        <div class="grid grid-cols-1 gap-6">
+                            <!-- Lesson Learned Item -->
+                            <div class="space-y-2">
+                                <label for="ll_stakeholder_rating" class="font-semibold text-stone-700">การระบุและการมีส่วนร่วมของผู้มีส่วนได้ส่วนเสีย: <span id="ll_stakeholder_rating_value" class="font-normal text-stone-600">5</span>/10</label>
+                                <input type="range" id="ll_stakeholder_rating" min="1" max="10" value="5" class="w-full">
+                                <textarea id="ll_stakeholder_well" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ทำได้ดี"></textarea>
+                                <textarea id="ll_stakeholder_improve" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ควรปรับปรุง"></textarea>
+                            </div>
+                            <div class="space-y-2">
+                                <label for="ll_business_case_rating" class="font-semibold text-stone-700">การพัฒนา Business Case: <span id="ll_business_case_rating_value" class="font-normal text-stone-600">5</span>/10</label>
+                                <input type="range" id="ll_business_case_rating" min="1" max="10" value="5" class="w-full">
+                                <textarea id="ll_business_case_well" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ทำได้ดี"></textarea>
+                                <textarea id="ll_business_case_improve" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ควรปรับปรุง"></textarea>
+                            </div>
+                            <div class="space-y-2">
+                                <label for="ll_scope_rating" class="font-semibold text-stone-700">การกำหนดและจัดการขอบเขต: <span id="ll_scope_rating_value" class="font-normal text-stone-600">5</span>/10</label>
+                                <input type="range" id="ll_scope_rating" min="1" max="10" value="5" class="w-full">
+                                <textarea id="ll_scope_well" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ทำได้ดี"></textarea>
+                                <textarea id="ll_scope_improve" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ควรปรับปรุง"></textarea>
+                            </div>
+                            <div class="space-y-2">
+                                <label for="ll_schedule_rating" class="font-semibold text-stone-700">การพัฒนาและการควบคุมตารางเวลา: <span id="ll_schedule_rating_value" class="font-normal text-stone-600">5</span>/10</label>
+                                <input type="range" id="ll_schedule_rating" min="1" max="10" value="5" class="w-full">
+                                <textarea id="ll_schedule_well" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ทำได้ดี"></textarea>
+                                <textarea id="ll_schedule_improve" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ควรปรับปรุง"></textarea>
+                            </div>
+                            <div class="space-y-2">
+                                <label for="ll_cost_rating" class="font-semibold text-stone-700">การประมาณการและควบคุมค่าใช้จ่าย: <span id="ll_cost_rating_value" class="font-normal text-stone-600">5</span>/10</label>
+                                <input type="range" id="ll_cost_rating" min="1" max="10" value="5" class="w-full">
+                                <textarea id="ll_cost_well" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ทำได้ดี"></textarea>
+                                <textarea id="ll_cost_improve" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ควรปรับปรุง"></textarea>
+                            </div>
+                            <div class="space-y-2">
+                                <label for="ll_procurement_rating" class="font-semibold text-stone-700">การจัดซื้อจัดจ้างและการบริหารสัญญา: <span id="ll_procurement_rating_value" class="font-normal text-stone-600">5</span>/10</label>
+                                <input type="range" id="ll_procurement_rating" min="1" max="10" value="5" class="w-full">
+                                <textarea id="ll_procurement_well" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ทำได้ดี"></textarea>
+                                <textarea id="ll_procurement_improve" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ควรปรับปรุง"></textarea>
+                            </div>
+                            <div class="space-y-2">
+                                <label for="ll_risk_rating" class="font-semibold text-stone-700">การระบุ จัดลำดับความสำคัญ และจัดการความเสี่ยง: <span id="ll_risk_rating_value" class="font-normal text-stone-600">5</span>/10</label>
+                                <input type="range" id="ll_risk_rating" min="1" max="10" value="5" class="w-full">
+                                <textarea id="ll_risk_well" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ทำได้ดี"></textarea>
+                                <textarea id="ll_risk_improve" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ควรปรับปรุง"></textarea>
+                            </div>
+                            <div class="space-y-2">
+                                <label for="ll_team_rating" class="font-semibold text-stone-700">การบริหารจัดการและประสิทธิภาพของทีมโครงการ: <span id="ll_team_rating_value" class="font-normal text-stone-600">5</span>/10</label>
+                                <input type="range" id="ll_team_rating" min="1" max="10" value="5" class="w-full">
+                                <textarea id="ll_team_well" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ทำได้ดี"></textarea>
+                                <textarea id="ll_team_improve" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ควรปรับปรุง"></textarea>
+                            </div>
+                            <div class="space-y-2">
+                                <label for="ll_governance_rating" class="font-semibold text-stone-700">ธรรมาภิบาลและการควบคุมการเปลี่ยนแปลงโครงการ: <span id="ll_governance_rating_value" class="font-normal text-stone-600">5</span>/10</label>
+                                <input type="range" id="ll_governance_rating" min="1" max="10" value="5" class="w-full">
+                                <textarea id="ll_governance_well" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ทำได้ดี"></textarea>
+                                <textarea id="ll_governance_improve" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ควรปรับปรุง"></textarea>
+                            </div>
+                            <div class="space-y-2">
+                                <label for="ll_delivery_rating" class="font-semibold text-stone-700">การส่งมอบและการส่งมอบโครงการ: <span id="ll_delivery_rating_value" class="font-normal text-stone-600">5</span>/10</label>
+                                <input type="range" id="ll_delivery_rating" min="1" max="10" value="5" class="w-full">
+                                <textarea id="ll_delivery_well" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ทำได้ดี"></textarea>
+                                <textarea id="ll_delivery_improve" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ควรปรับปรุง"></textarea>
+                            </div>
+                            <div class="space-y-2">
+                                <label for="ll_documentation_rating" class="font-semibold text-stone-700">เอกสารโครงการ: <span id="ll_documentation_rating_value" class="font-normal text-stone-600">5</span>/10</label>
+                                <input type="range" id="ll_documentation_rating" min="1" max="10" value="5" class="w-full">
+                                <textarea id="ll_documentation_well" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ทำได้ดี"></textarea>
+                                <textarea id="ll_documentation_improve" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ควรปรับปรุง"></textarea>
+                            </div>
+                             <div class="space-y-2">
+                                <label for="ll_other_rating" class="font-semibold text-stone-700">บทเรียนอื่นๆ ที่ได้รับ: <span id="ll_other_rating_value" class="font-normal text-stone-600">5</span>/10</label>
+                                <input type="range" id="ll_other_rating" min="1" max="10" value="5" class="w-full">
+                                <textarea id="ll_other_well" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ทำได้ดี"></textarea>
+                                <textarea id="ll_other_improve" rows="2" class="w-full p-2 border border-stone-300 rounded-lg focus:ring-1 focus:ring-green-400" placeholder="สิ่งที่ควรปรับปรุง"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 4: Recommendations / Action Plan -->
+                <section id="recommendations" class="space-y-6 p-6 bg-white rounded-xl shadow-sm">
+                    <h2 class="text-3xl font-bold text-green-700 border-b-2 border-green-200 pb-2">ข้อเสนอแนะ / แผนปฏิบัติ</h2>
+                    <p class="text-stone-600">จากบทเรียนที่ได้รับ คุณหรือองค์กรควรดำเนินการอย่างไรเพื่อนำบทเรียนเหล่านั้นไปใช้ให้เกิดประโยชน์ในโครงการต่อไป</p>
+                    <button id="generate-ai-recommendations-btn" class="mb-4 bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors duration-300 flex items-center">
+                        ✨ สร้างข้อเสนอแนะจาก AI
+                        <span id="ai-loading-spinner" class="loader hidden"></span>
+                    </button>
+                    <div class="space-y-4">
+                        <label class="block font-semibold text-stone-700">เริ่มต้น (Start):</label>
+                        <textarea id="rec_start" rows="4" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="จากบทเรียนที่ได้รับ คุณหรือองค์กรควรเริ่มทำอะไร? มีขั้นตอน การกระทำ หรือกระบวนการใดบ้างที่คุณไม่ได้ทำในโครงการนี้ ที่หากนำมาใช้จะช่วยให้โครงการในอนาคตง่ายขึ้น?"></textarea>
+                    </div>
+                    <div class="space-y-4">
+                        <label class="block font-semibold text-stone-700">หยุด (Stop):</label>
+                        <textarea id="rec_stop" rows="4" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="จากบทเรียนที่ได้รับ คุณหรือองค์กรควรหยุดทำอะไรในโครงการในอนาคต? มีการตัดสินใจใดบ้างในโครงการนี้ที่สามารถทำให้ดีขึ้นได้? เราจะมั่นใจได้อย่างไรว่าสิ่งนี้จะเกิดขึ้น?"></textarea>
+                    </div>
+                    <div class="space-y-4">
+                        <label class="block font-semibold text-stone-700">ดำเนินการต่อ (Continue):</label>
+                        <textarea id="rec_continue" rows="4" class="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:focus:border-green-500 transition" placeholder="จากบทเรียนที่ได้รับ คุณหรือองค์กรควรทำอะไรต่อไป? มีสิ่งใดที่คุณทำในโครงการนี้ที่ได้ผลดีมากจนควรนำมาใช้เป็นแนวปฏิบัติในโครงการในอนาคต?"></textarea>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Summary Modal -->
+    <div id="summary-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="p-8" id="print-area">
+                <h2 class="text-4xl font-bold text-center text-green-800 mb-2">รายงานสรุปการทบทวนโครงการ</h2>
+                <p class="text-center text-stone-600 text-lg mb-8">งานห้องเรียนธรรมชาติ - โครงการธรรมชาติศึกษาสำหรับผู้ใหญ่</p>
+                
+                <div id="summary-project-info" class="space-y-2 text-stone-800 mb-6"></div>
+                <div id="summary-content" class="space-y-6 text-stone-800"></div>
+                
+                <div class="mt-10">
+                    <h3 class="text-2xl font-bold text-green-700 text-center mb-4">ภาพรวมผลการดำเนินงานและบทเรียนที่ได้รับ</h3>
+                    <div class="chart-container">
+                        <canvas id="skills-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 bg-stone-100 border-t flex justify-end space-x-4">
+                <button id="print-btn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition">พิมพ์ / บันทึกเป็น PDF</button>
+                <button id="close-modal-btn" class="bg-stone-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-stone-600 transition">ปิด</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const sections = document.querySelectorAll('main section');
+            const navLinks = document.querySelectorAll('#navigation a');
+            const summaryModal = document.getElementById('summary-modal');
+            const generateBtn = document.getElementById('generate-summary-btn');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const printBtn = document.getElementById('print-btn');
+            const summaryProjectInfo = document.getElementById('summary-project-info');
+            const summaryContent = document.getElementById('summary-content');
+            let skillsChart = null;
+
+            const photoEntriesContainer = document.getElementById('photo-entries-container');
+            const addPhotoBtn = document.getElementById('add-photo-btn');
+            let photosData = []; // Array to store { id: uniqueId, src: '', caption: '' }
+
+            let photoCounter = 0; // To generate unique IDs for each photo entry
+
+            // Gemini API integration elements
+            const generateAIRecommendationsBtn = document.getElementById('generate-ai-recommendations-btn');
+            const aiLoadingSpinner = document.getElementById('ai-loading-spinner');
+            const recStart = document.getElementById('rec_start');
+            const recStop = document.getElementById('rec_stop');
+            const recContinue = document.getElementById('rec_continue');
+
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        navLinks.forEach(link => {
+                            link.classList.remove('active');
+                            if (link.getAttribute('href').substring(1) === entry.target.id) {
+                                link.classList.add('active');
+                            }
+                        });
+                    }
+                });
+            }, { rootMargin: '-50% 0px -50% 0px', threshold: 0 });
+
+            sections.forEach(section => {
+                observer.observe(section);
+            });
+
+            // Function to update slider value display
+            function updateSliderValue(sliderId, valueSpanId) {
+                const slider = document.getElementById(sliderId);
+                const valueSpan = document.getElementById(valueSpanId);
+                if (slider && valueSpan) {
+                    valueSpan.textContent = slider.value;
+                    slider.addEventListener('input', () => {
+                        valueSpan.textContent = slider.value;
+                    });
+                }
+            }
+
+            // Initialize all slider value displays
+            updateSliderValue('ll_stakeholder_rating', 'll_stakeholder_rating_value');
+            updateSliderValue('ll_business_case_rating', 'll_business_case_rating_value');
+            updateSliderValue('ll_scope_rating', 'll_scope_rating_value');
+            updateSliderValue('ll_schedule_rating', 'll_schedule_rating_value');
+            updateSliderValue('ll_cost_rating', 'll_cost_rating_value');
+            updateSliderValue('ll_procurement_rating', 'll_procurement_rating_value');
+            updateSliderValue('ll_risk_rating', 'll_risk_rating_value');
+            updateSliderValue('ll_team_rating', 'll_team_rating_value');
+            updateSliderValue('ll_governance_rating', 'll_governance_rating_value');
+            updateSliderValue('ll_delivery_rating', 'll_delivery_rating_value');
+            updateSliderValue('ll_documentation_rating', 'll_documentation_rating_value');
+            updateSliderValue('ll_other_rating', 'll_other_rating_value');
+
+            // Function to add a new photo entry block
+            function addPhotoEntry() {
+                const currentPhotoId = `photo_${photoCounter++}`;
+                const photoEntryDiv = document.createElement('div');
+                photoEntryDiv.id = currentPhotoId;
+                photoEntryDiv.className = 'p-4 border border-stone-200 rounded-lg bg-stone-50 space-y-3 relative';
+                
+                photoEntryDiv.innerHTML = `
+                    <button type="button" class="remove-photo-btn absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-xl">&times;</button>
+                    <label class="block font-semibold text-stone-700">รูปภาพ:</label>
+                    <input type="file" class="photo-upload-input w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" accept="image/*" data-photo-id="${currentPhotoId}">
+                    <div class="mt-2 p-2 border border-stone-300 rounded-lg flex justify-center items-center bg-stone-100 min-h-[150px] hidden photo-preview-container">
+                        <img src="#" alt="ตัวอย่างรูปภาพกิจกรรม" class="max-w-full max-h-[300px] object-contain rounded-md photo-preview-img">
+                    </div>
+                    <label class="block font-semibold text-stone-700">คำอธิบายรูปภาพ:</label>
+                    <textarea rows="3" class="photo-caption-input w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition" placeholder="กรอกคำอธิบายสำหรับรูปภาพกิจกรรมนี้" data-photo-id="${currentPhotoId}"></textarea>
+                `;
+                photoEntriesContainer.appendChild(photoEntryDiv);
+
+                // Add to photosData array
+                photosData.push({ id: currentPhotoId, src: '', caption: '' });
+
+                // Add event listeners for the new elements
+                const uploadInput = photoEntryDiv.querySelector('.photo-upload-input');
+                const previewImg = photoEntryDiv.querySelector('.photo-preview-img');
+                const previewContainer = photoEntryDiv.querySelector('.photo-preview-container');
+                const captionInput = photoEntryDiv.querySelector('.photo-caption-input');
+                const removeBtn = photoEntryDiv.querySelector('.remove-photo-btn');
+
+                uploadInput.addEventListener('change', function(event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            previewImg.src = e.target.result;
+                            previewContainer.classList.remove('hidden');
+                            const photoObj = photosData.find(p => p.id === currentPhotoId);
+                            if (photoObj) photoObj.src = e.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        previewImg.src = '#';
+                        previewContainer.classList.add('hidden');
+                        const photoObj = photosData.find(p => p.id === currentPhotoId);
+                        if (photoObj) photoObj.src = '';
+                    }
+                });
+
+                captionInput.addEventListener('input', function() {
+                    const photoObj = photosData.find(p => p.id === currentPhotoId);
+                    if (photoObj) photoObj.caption = captionInput.value;
+                });
+
+                removeBtn.addEventListener('click', function() {
+                    photoEntriesContainer.removeChild(photoEntryDiv);
+                    photosData = photosData.filter(p => p.id !== currentPhotoId);
+                });
+            }
+
+            addPhotoBtn.addEventListener('click', addPhotoEntry);
+
+            // Add initial photo entry on load
+            addPhotoEntry();
+
+
+            generateBtn.addEventListener('click', () => {
+                summaryProjectInfo.innerHTML = '';
+                summaryContent.innerHTML = '';
+                
+                // Project Information Summary
+                const projectInfo = [
+                    { label: 'ชื่อโครงการ', id: 'project_name' },
+                    { label: 'ผู้จัดการโครงการ', id: 'project_manager' },
+                    { label: 'ผู้สนับสนุนโครงการ', id: 'project_sponsor' },
+                    { label: 'วันที่เริ่ม', id: 'commenced_date' },
+                    { label: 'วันที่กิจกรรม', id: 'delivered_date' },
+                    { label: 'วันที่ทบทวน', id: 'review_date' },
+                ];
+
+                projectInfo.forEach(item => {
+                    const value = document.getElementById(item.id).value || '<i>(ไม่มีข้อมูล)</i>';
+                    const p = document.createElement('p');
+                    p.innerHTML = `<strong class="font-semibold">${item.label}:</strong> ${value}`;
+                    summaryProjectInfo.appendChild(p);
+                });
+
+                const reflectionData = [
+                    { title: 'ภาพรวมโครงการ', questions: [
+                        { label: 'คำอธิบายโครงการ', id: 'q_overview_description' },
+                        { label: 'ผลลัพธ์ที่ตั้งใจ', id: 'q_overview_outcomes' },
+                        { label: 'วัตถุประสงค์เชิงกลยุทธ์', id: 'q_overview_strategic' },
+                    ]},
+                    { title: 'ผลการดำเนินงานโครงการ', questions: [
+                        { label: 'ขอบเขต', sub_items: [
+                            { label: 'ผลลัพธ์ที่ส่งมอบ', id_planned: 'q_perf_scope_deliverables_planned', id_actual: 'q_perf_scope_deliverables_actual' },
+                            { label: 'คุณสมบัติ/ฟังก์ชัน', id_planned: 'q_perf_scope_features_planned', id_actual: 'q_perf_scope_features_actual' },
+                            { label: 'กลุ่มเป้าหมาย', id_planned: 'q_perf_scope_audience_planned', id_actual: 'q_perf_scope_audience_actual' },
+                            { label: 'พื้นที่ดำเนินงาน', id_planned: 'q_perf_scope_area_planned', id_actual: 'q_perf_scope_area_actual' },
+                        ]},
+                        { label: 'ตารางเวลา', id_planned: 'q_perf_schedule_planned', id_actual: 'q_perf_schedule_actual' },
+                        { label: 'งบประมาณ', sub_items: [
+                            { label: 'ค่าบุคลากร', id_planned: 'q_perf_budget_personnel_planned', id_actual: 'q_perf_budget_personnel_actual' },
+                            { label: 'ค่าวัสดุ/อุปกรณ์', id_planned: 'q_perf_budget_materials_planned', id_actual: 'q_perf_budget_materials_actual' },
+                            { label: 'ค่าเดินทาง/โลจิสติกส์', id_planned: 'q_perf_budget_travel_planned', id_actual: 'q_perf_budget_travel_actual' },
+                            { label: 'ค่าการตลาด/ประชาสัมพันธ์', id_planned: 'q_perf_budget_marketing_planned', id_actual: 'q_perf_budget_marketing_actual' },
+                            { label: 'ค่าสำรอง', id_planned: 'q_perf_budget_contingency_planned', id_actual: 'q_perf_budget_contingency_actual' },
+                        ]},
+                        { label: 'ผลลัพธ์ที่ส่งมอบแล้ว', id: 'q_perf_outcomes_delivered' },
+                        { label: 'ผลลัพธ์ที่ยังไม่บรรลุ', id: 'q_perf_outcomes_unrealised' },
+                        { label: 'การเปลี่ยนแปลง', id: 'q_perf_changes' },
+                        { label: 'การดำเนินการที่ยังค้างอยู่', id: 'q_perf_open_actions' },
+                    ]},
+                    { title: 'รูปภาพกิจกรรม', type: 'photos'} // Special type for photos
+                    ,
+                    { title: 'บทเรียนที่ได้รับ', questions: [
+                        { label: 'การระบุและการมีส่วนร่วมของผู้มีส่วนได้ส่วนเสีย', id_well: 'll_stakeholder_well', id_improve: 'll_stakeholder_improve', id_rating: 'll_stakeholder_rating' },
+                        { label: 'การพัฒนา Business Case', id_well: 'll_business_case_well', id_improve: 'll_business_case_improve', id_rating: 'll_business_case_rating' },
+                        { label: 'การกำหนดและจัดการขอบเขต', id_well: 'll_scope_well', id_improve: 'll_scope_improve', id_rating: 'll_scope_rating' },
+                        { label: 'การพัฒนาและการควบคุมตารางเวลา', id_well: 'll_schedule_well', id_improve: 'll_schedule_improve', id_rating: 'll_schedule_rating' },
+                        { label: 'การประมาณการและควบคุมค่าใช้จ่าย', id_well: 'll_cost_well', id_improve: 'll_cost_improve', id_rating: 'll_cost_rating' },
+                        { label: 'การจัดซื้อจัดจ้างและการบริหารสัญญา', id_well: 'll_procurement_well', id_improve: 'll_procurement_improve', id_rating: 'll_procurement_rating' },
+                        { label: 'การระบุ จัดลำดับความสำคัญ และจัดการความเสี่ยง', id_well: 'll_risk_well', id_improve: 'll_risk_improve', id_rating: 'll_risk_rating' },
+                        { label: 'การบริหารจัดการและประสิทธิภาพของทีมโครงการ', id_well: 'll_team_well', id_improve: 'll_team_improve', id_rating: 'll_team_rating' },
+                        { label: 'ธรรมาภิบาลและการควบคุมการเปลี่ยนแปลงโครงการ', id_well: 'll_governance_well', id_improve: 'll_governance_improve', id_rating: 'll_governance_rating' },
+                        { label: 'การส่งมอบและการส่งมอบโครงการ', id_well: 'll_delivery_well', id_improve: 'll_delivery_improve', id_rating: 'll_delivery_rating' },
+                        { label: 'เอกสารโครงการ', id_well: 'll_documentation_well', id_improve: 'll_documentation_improve', id_rating: 'll_documentation_rating' },
+                        { label: 'บทเรียนอื่นๆ ที่ได้รับ', id_well: 'll_other_well', id_improve: 'll_other_improve', id_rating: 'll_other_rating' },
+                    ]},
+                    { title: 'ข้อเสนอแนะ / แผนปฏิบัติ', questions: [
+                        { label: 'เริ่มต้น (Start)', id: 'rec_start' },
+                        { label: 'หยุด (Stop)', id: 'rec_stop' },
+                        { label: 'ดำเนินการต่อ (Continue)', id: 'rec_continue' },
+                    ]}
+                ];
+
+                reflectionData.forEach(section => {
+                    const sectionDiv = document.createElement('div');
+                    sectionDiv.innerHTML = `<h3 class="text-2xl font-bold text-green-700 border-b-2 border-green-200 pb-2 mb-4">${section.title}</h3>`;
+                    const list = document.createElement('ul');
+                    list.className = 'space-y-4 list-disc list-inside pl-2';
+
+                    if (section.type === 'photos') {
+                        if (photosData.length > 0) {
+                            photosData.forEach(photo => {
+                                if (photo.src) {
+                                    const imgItem = document.createElement('li');
+                                    imgItem.className = 'photo-entry-print'; // Add class for print styling
+                                    imgItem.innerHTML = `
+                                        <strong class="font-semibold">รูปภาพกิจกรรม:</strong>
+                                        <div class="mt-2 flex justify-center">
+                                            <img src="${photo.src}" alt="รูปภาพกิจกรรม" class="max-w-full max-h-[400px] object-contain rounded-md shadow-md">
+                                        </div>
+                                        <p class="pl-6 text-stone-700 mt-2"><strong>คำอธิบาย:</strong> ${photo.caption || '<i>(ไม่มีคำอธิบาย)</i>'}</p>
+                                    `;
+                                    list.appendChild(imgItem);
+                                }
+                            });
+                            if (list.children.length === 0) { // If all photos were removed or had no src
+                                const noImgItem = document.createElement('li');
+                                noImgItem.innerHTML = `<i>(ไม่มีรูปภาพกิจกรรมที่อัปโหลด)</i>`;
+                                list.appendChild(noImgItem);
+                            }
+                        } else {
+                            const noImgItem = document.createElement('li');
+                            noImgItem.innerHTML = `<i>(ไม่มีรูปภาพกิจกรรมที่อัปโหลด)</i>`;
+                            list.appendChild(noImgItem);
+                        }
+                    } else {
+                        section.questions.forEach(q => {
+                            const item = document.createElement('li');
+                            if (q.id) { // For simple textareas
+                                const value = document.getElementById(q.id).value || '<i>(ไม่มีคำตอบ)</i>';
+                                item.innerHTML = `<strong class="font-semibold">${q.label}:</strong><p class="pl-6 text-stone-700">${value.replace(/\n/g, '<br>')}</p>`;
+                            } else if (q.id_well && q.id_improve && q.id_rating) { // For lessons learned with well/improve/rating
+                                const well = document.getElementById(q.id_well).value || '<i>(ไม่มีข้อมูล)</i>';
+                                const improve = document.getElementById(q.id_improve).value || '<i>(ไม่มีข้อมูล)</i>';
+                                const rating = document.getElementById(q.id_rating).value || '<i>(ไม่มีข้อมูล)</i>';
+                                item.innerHTML = `
+                                    <strong class="font-semibold">${q.label}:</strong>
+                                    <p class="pl-6 text-stone-700"><strong>สิ่งที่ทำได้ดี:</strong> ${well.replace(/\n/g, '<br>')}</p>
+                                    <p class="pl-6 text-stone-700"><strong>สิ่งที่ควรปรับปรุง:</strong> ${improve.replace(/\n/g, '<br>')}</p>
+                                    <p class="pl-6 text-stone-700"><strong>คะแนน:</strong> ${rating}/10</p>
+                                `;
+                            } else if (q.sub_items) { // For planned vs actual comparison with sub-items
+                                let subItemHtml = '';
+                                q.sub_items.forEach(sub => {
+                                    const plannedValue = document.getElementById(sub.id_planned).value || '<i>(ไม่มีข้อมูล)</i>';
+                                    const actualValue = document.getElementById(sub.id_actual).value || '<i>(ไม่มีข้อมูล)</i>';
+                                    subItemHtml += `
+                                        <div class="grid grid-cols-2 gap-2 pl-6 text-stone-700">
+                                            <div><strong>${sub.label} (แผน):</strong> ${plannedValue.replace(/\n/g, '<br>')}</div>
+                                            <div><strong>${sub.label} (จริง):</strong> ${actualValue.replace(/\n/g, '<br>')}</div>
+                                        </div>
+                                    `;
+                                });
+                                item.innerHTML = `
+                                    <strong class="font-semibold">${q.label}:</strong>
+                                    ${subItemHtml}
+                                `;
+                            } else if (q.id_planned && q.id_actual) { // For single planned vs actual comparison (e.g., schedule)
+                                const plannedValue = document.getElementById(q.id_planned).value || '<i>(ไม่มีข้อมูล)</i>';
+                                const actualValue = document.getElementById(q.id_actual).value || '<i>(ไม่มีข้อมูล)</i>';
+                                item.innerHTML = `
+                                    <strong class="font-semibold">${q.label}:</strong>
+                                    <div class="grid grid-cols-2 gap-2 pl-6 text-stone-700">
+                                        <div><strong>แผน:</strong> ${plannedValue.replace(/\n/g, '<br>')}</div>
+                                        <div><strong>จริง:</strong> ${actualValue.replace(/\n/g, '<br>')}</div>
+                                    </div>
+                                `;
+                            }
+                            list.appendChild(item);
+                        });
+                    }
+                    sectionDiv.appendChild(list);
+                    summaryContent.appendChild(sectionDiv);
+                });
+
+                summaryModal.classList.remove('hidden');
+                renderSkillsChart();
+            });
+
+            closeModalBtn.addEventListener('click', () => {
+                summaryModal.classList.add('hidden');
+            });
+            
+            printBtn.addEventListener('click', () => {
+                window.print();
+            });
+
+            // Function to handle AI recommendations
+            generateAIRecommendationsBtn.addEventListener('click', async () => {
+                aiLoadingSpinner.classList.remove('hidden'); // Show spinner
+                generateAIRecommendationsBtn.disabled = true; // Disable button
+
+                let lessonsLearnedText = "";
+                const lessonCategories = [
+                    'stakeholder', 'business_case', 'scope', 'schedule', 'cost',
+                    'procurement', 'risk', 'team', 'governance', 'delivery',
+                    'documentation', 'other'
+                ];
+
+                lessonCategories.forEach(category => {
+                    const wellText = document.getElementById(`ll_${category}_well`).value;
+                    const improveText = document.getElementById(`ll_${category}_improve`).value;
+
+                    if (wellText || improveText) {
+                        lessonsLearnedText += `\n--- Category: ${category.replace(/_/g, ' ').toUpperCase()} ---\n`;
+                        if (wellText) {
+                            lessonsLearnedText += `สิ่งที่ทำได้ดี: ${wellText}\n`;
+                        }
+                        if (improveText) {
+                            lessonsLearnedText += `สิ่งที่ควรปรับปรุง: ${improveText}\n`;
+                        }
+                    }
+                });
+
+                if (!lessonsLearnedText.trim()) {
+                    alert('กรุณากรอกข้อมูลในส่วน "บทเรียนที่ได้รับ" ก่อนสร้างข้อเสนอแนะจาก AI'); // Using alert for simplicity, could be a custom modal
+                    aiLoadingSpinner.classList.add('hidden');
+                    generateAIRecommendationsBtn.disabled = false;
+                    return;
+                }
+
+                const prompt = `Based on the following lessons learned from a project, please provide concise recommendations for 'Start', 'Stop', and 'Continue' actions.
+                
+                ${lessonsLearnedText}
+                
+                Please provide the output in JSON format with keys 'start', 'stop', and 'continue'. The values should be strings containing the recommendations in Thai.`;
+
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+                const payload = {
+                    contents: chatHistory,
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                "start": { "type": "STRING" },
+                                "stop": { "type": "STRING" },
+                                "continue": { "type": "STRING" }
+                            },
+                            "propertyOrdering": ["start", "stop", "continue"]
+                        }
+                    }
+                };
+
+                const apiKey = ""; // Canvas will provide this at runtime
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await response.json();
+
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        const json = result.candidates[0].content.parts[0].text;
+                        const parsedJson = JSON.parse(json);
+
+                        recStart.value = parsedJson.start || '';
+                        recStop.value = parsedJson.stop || '';
+                        recContinue.value = parsedJson.continue || '';
+                    } else {
+                        console.error('Unexpected API response structure:', result);
+                        alert('ไม่สามารถสร้างข้อเสนอแนะได้: โครงสร้างการตอบกลับจาก AI ไม่ถูกต้อง'); // Using alert for simplicity
+                    }
+                } catch (error) {
+                    console.error('Error calling Gemini API:', error);
+                    alert('เกิดข้อผิดพลาดในการเชื่อมต่อกับ AI: ' + error.message); // Using alert for simplicity
+                } finally {
+                    aiLoadingSpinner.classList.add('hidden'); // Hide spinner
+                    generateAIRecommendationsBtn.disabled = false; // Enable button
+                }
+            });
+
+
+            function renderSkillsChart() {
+                const ctx = document.getElementById('skills-chart').getContext('2d');
+                const skillLabels = [
+                    'การจัดการผู้มีส่วนได้ส่วนเสีย',
+                    'การพัฒนา Business Case',
+                    'การกำหนดและจัดการขอบเขต',
+                    'การควบคุมตารางเวลา',
+                    'การควบคุมค่าใช้จ่าย',
+                    'การจัดซื้อจัดจ้าง',
+                    'การบริหารความเสี่ยง',
+                    'การบริหารทีม',
+                    'ธรรมาภิบาลโครงการ',
+                    'การส่งมอบโครงการ',
+                    'เอกสารโครงการ',
+                    'บทเรียนอื่นๆ'
+                ];
+                const skillDataValues = [
+                    document.getElementById('ll_stakeholder_rating').value,
+                    document.getElementById('ll_business_case_rating').value,
+                    document.getElementById('ll_scope_rating').value,
+                    document.getElementById('ll_schedule_rating').value,
+                    document.getElementById('ll_cost_rating').value,
+                    document.getElementById('ll_procurement_rating').value,
+                    document.getElementById('ll_risk_rating').value,
+                    document.getElementById('ll_team_rating').value,
+                    document.getElementById('ll_governance_rating').value,
+                    document.getElementById('ll_delivery_rating').value,
+                    document.getElementById('ll_documentation_rating').value,
+                    document.getElementById('ll_other_rating').value
+                ];
+
+                const skillData = {
+                    labels: skillLabels,
+                    datasets: [{
+                        label: 'ระดับการดำเนินงาน',
+                        data: skillDataValues,
+                        backgroundColor: 'rgba(22, 163, 74, 0.2)',
+                        borderColor: 'rgb(22, 163, 74)',
+                        pointBackgroundColor: 'rgb(22, 163, 74)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgb(22, 163, 74)'
+                    }]
+                };
+
+                if (skillsChart) {
+                    skillsChart.destroy();
+                }
+
+                skillsChart = new Chart(ctx, {
+                    type: 'radar',
+                    data: skillData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                max: 10,
+                                pointLabels: {
+                                    font: {
+                                        size: 12, // Adjusted for more labels
+                                        family: "'Sarabun', sans-serif"
+                                    }
+                                },
+                                ticks: {
+                                    stepSize: 2
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
